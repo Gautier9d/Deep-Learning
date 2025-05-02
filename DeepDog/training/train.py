@@ -42,9 +42,11 @@ def cli_main():
     else:
         parser = BERTRationalePredictor.add_model_specific_args(parser)
     
-    # Add data specific args
-    parser = SilentSignalsDataModule.add_model_specific_args(parser)
-    parser = CustomSilentSignalsDataModule.add_model_specific_args(parser)
+    # Add data specific args based on data_module argument
+    if "--data_module" in sys.argv and sys.argv[sys.argv.index("--data_module") + 1] == "custom":
+        parser = CustomSilentSignalsDataModule.add_model_specific_args(parser)
+    else:
+        parser = SilentSignalsDataModule.add_model_specific_args(parser)
     
     # Add trainer specific args
     # Using newer PyTorch Lightning pattern for trainer args

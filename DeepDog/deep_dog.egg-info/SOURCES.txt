@@ -1,0 +1,6 @@
+setup.py
+deep_dog.egg-info/PKG-INFO
+deep_dog.egg-info/SOURCES.txt
+deep_dog.egg-info/dependency_links.txt
+deep_dog.egg-info/requires.txt
+deep_dog.egg-info/top_level.txt

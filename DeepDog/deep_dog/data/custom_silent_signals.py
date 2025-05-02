@@ -24,7 +24,7 @@ class CustomSilentSignalsDataset(Dataset):
         dog_whistle = str(row['dog_whistle'])
         label = int(row['label'])
 
-        # Tokenize the text
+        # Tokenize text and create attention mask
         encoding = self.tokenizer(
             content,
             max_length=self.max_length,
@@ -33,21 +33,33 @@ class CustomSilentSignalsDataset(Dataset):
             return_tensors='pt'
         )
 
-        # Convert to the expected format
-        item = {
-            'input_ids': encoding['input_ids'].squeeze(0),
-            'attention_mask': encoding['attention_mask'].squeeze(0),
-            'rationale': torch.tensor(dog_whistle == '1', dtype=torch.float32),  # Convert dog_whistle to binary tensor
+        input_ids = encoding['input_ids'].squeeze(0)
+        attention_mask = encoding['attention_mask'].squeeze(0)
+
+        # Since we don't have specific dog whistle words, we'll create a simple mask based on the label
+        # If label is 1 (contains dog whistle), we'll mark the entire text
+        # This is less precise than the original implementation but works with binary labels
+        rationale_mask = torch.zeros_like(input_ids)
+        if int(label) == 1:  # if it's a dog whistle
+            # Mark all non-padding tokens as potential dog whistle locations
+            rationale_mask = attention_mask.clone()  # 1 for all non-padding tokens
+
+        return {
+            'input_ids': input_ids,
+            'attention_mask': attention_mask,
+            'rationale_mask': rationale_mask,  # Changed from 'rationale' to 'rationale_mask' to match SilentSignalsDataset
+            'text': content,
+            'dog_whistle': dog_whistle,
             'label': torch.tensor(label, dtype=torch.long)
         }
-
-        return item
 
 
 class CustomSilentSignalsDataModule(BaseDataModule):
     def __init__(self, args: argparse.Namespace) -> None:
         super().__init__(args)
         self.data_path = args.data_path
+        self.batch_size = getattr(args, 'batch_size', 32)
+        self.num_workers = getattr(args, 'num_workers', 4)
         self.max_length = getattr(args, 'max_length', 512)
         self.val_split = getattr(args, 'val_split', 0.1)
         self.test_split = getattr(args, 'test_split', 0.1)
@@ -59,8 +71,20 @@ class CustomSilentSignalsDataModule(BaseDataModule):
         parser.add_argument(
             "--data_path",
             type=str,
-            default="DeepDog/deep_dog/data/final_dogwhistle_dataset.csv",
+            default="DeepDog/deep_dog/data/final_dogwhistle_dataset_with_dogwhistle.csv",
             help="Path to the CSV file containing the custom silent signals dataset"
+        )
+        parser.add_argument(
+            "--batch_size",
+            type=int,
+            default=32,
+            help="Number of examples to operate on per forward step"
+        )
+        parser.add_argument(
+            "--num_workers",
+            type=int,
+            default=4,
+            help="Number of subprocesses to use for data loading"
         )
         parser.add_argument(
             "--max_length",
@@ -92,6 +116,14 @@ class CustomSilentSignalsDataModule(BaseDataModule):
         # Read the CSV file
         df = pd.read_csv(self.data_path)
         
+        # Rename columns if necessary
+        if 'text' in df.columns and 'content' not in df.columns:
+            df = df.rename(columns={'text': 'content'})
+            
+        # Add dog_whistle column if it doesn't exist (using label)
+        if 'dog_whistle' not in df.columns and 'label' in df.columns:
+            df['dog_whistle'] = df['label'].astype(str)
+
         # Verify required columns exist
         required_columns = ['content', 'dog_whistle', 'label']
         missing_columns = [col for col in required_columns if col not in df.columns]

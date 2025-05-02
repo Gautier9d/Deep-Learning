@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: deep_dog
+Version: 0.1
+Requires-Dist: torch
+Requires-Dist: pytorch-lightning
+Requires-Dist: transformers
+Requires-Dist: pandas
+Requires-Dist: scikit-learn
+Requires-Dist: datasets
+Dynamic: requires-dist
