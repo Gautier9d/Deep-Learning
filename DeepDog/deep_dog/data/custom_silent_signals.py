@@ -1,7 +1,9 @@
+
 from typing import Optional
 import argparse
 import pandas as pd
 import torch
+import os
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from .base_data_module import BaseDataModule
@@ -57,7 +59,7 @@ class CustomSilentSignalsDataModule(BaseDataModule):
         parser.add_argument(
             "--data_path",
             type=str,
-            required=True,
+            default="DeepDog/deep_dog/data/final_dogwhistle_dataset.csv",
             help="Path to the CSV file containing the custom silent signals dataset"
         )
         parser.add_argument(
