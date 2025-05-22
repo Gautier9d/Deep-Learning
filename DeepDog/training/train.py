@@ -3,16 +3,17 @@ import sys
 from pathlib import Path
 import torch
 import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, ModelSummary
 from pytorch_lightning.loggers import WandbLogger
 import wandb
 import argparse
 
 from deep_dog.data.silent_signals import SilentSignalsDataModule
-from deep_dog.models.bert_rationale import BERTRationalePredictor
-from deep_dog.models.distilbert_rationale import DistilBERTRationalePredictor
+from deep_dog.models.transformer_rationale import TransformerRationale
 from deep_dog.lit_models.base import BaseLitModel
-
+import matplotlib.pyplot as plt
+from PIL import Image
+from deep_dog.utils import get_car_miles, get_household_fraction
 
 def cli_main():
     # Build argument parser
@@ -25,21 +26,27 @@ def cli_main():
                         default=False,
                         help="Use Weights & Biases logging")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
-    parser.add_argument("--model_type",
+    parser.add_argument("--model_name",
                         type=str,
-                        default="bert",
-                        choices=["bert", "distilbert"],
-                        help="Type of model to use (bert or distilbert)")
+                        default="distilbert",
+                        choices=[
+                            "bert",
+                            "hatebert",
+                            "hatexplain",
+                            "distilbert",
+                        ],
+                        help="Pretrained model to use")
 
-    # Add model specific args based on model type
-    if "--model_type" in sys.argv and sys.argv[sys.argv.index("--model_type") +
-                                               1] == "distilbert":
-        parser = DistilBERTRationalePredictor.add_model_specific_args(parser)
-    else:
-        parser = BERTRationalePredictor.add_model_specific_args(parser)
+    # Add shared model specific args
+    parser.add_argument("--learning_rate", type=float, default=2e-5)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--hidden_dropout_prob", type=float, default=0.1)
 
     # Add data specific args
     parser = SilentSignalsDataModule.add_model_specific_args(parser)
+
+    # Add model specific args
+    parser = TransformerRationale.add_model_specific_args(parser)
 
     # Add trainer specific args
     # Using newer PyTorch Lightning pattern for trainer args
@@ -51,6 +58,9 @@ def cli_main():
                         type=str,
                         default="32-true",
                         help="Precision of training")
+
+    # Read more here: https://lightning.ai/docs/pytorch/stable/common/trainer.html#precision
+
     parser.add_argument("--strategy", type=str, default="auto")
     parser.add_argument("--fast_dev_run",
                         action="store_true",
@@ -68,27 +78,34 @@ def cli_main():
     # Create data module
     data_module = SilentSignalsDataModule(args)
 
-    # Create model based on model_type argument
-    if args.model_type == "bert":
-        model = BERTRationalePredictor(args)
-    else:  # distilbert
-        model = DistilBERTRationalePredictor(args)
+    # Create model from pretrained
+    model = TransformerRationale(args)
 
     lit_model = BaseLitModel(model=model, args=args)
+
+    # count and print the number of parameters
+    num_params = sum(p.numel() for p in lit_model.parameters()
+                     if p.requires_grad)
+    print(f"Number of trainable parameters: {num_params:,}")
 
     # Create callbacks
     model_checkpoint_callback = ModelCheckpoint(
         monitor="val_iou",
         mode="max",
         save_top_k=1,
-        filename=f"{args.model_type}-{{epoch:02d}}-{{val_iou:.2f}}",
+        filename=
+        f"{args.model_name.split('/')[-1]}-{{epoch:02d}}-{{val_iou:.2f}}",
         save_last=True,
     )
     early_stopping_callback = EarlyStopping(monitor="val_iou",
                                             mode="max",
                                             patience=3,
                                             min_delta=0.001)
-    callbacks = [model_checkpoint_callback, early_stopping_callback]
+    model_summary_callback = ModelSummary(max_depth=1)
+    callbacks = [
+        model_checkpoint_callback, early_stopping_callback,
+        model_summary_callback
+    ]
 
     # Create logger
     logger = None
@@ -119,13 +136,39 @@ def cli_main():
         trainer.test(lit_model, datamodule=data_module)
 
     # Upload model to wandb using model checkpoint
-    best_model_path = model_checkpoint_callback.best_model_path
-    if best_model_path:
-        print(f"Best model path: {best_model_path}")
-        if args.wandb:
-            wandb.save(best_model_path)
-            print("Best model uploaded to wandb.")
+    # best_model_path = model_checkpoint_callback.best_model_path
+    # if best_model_path:
+    #     print(f"Best model path: {best_model_path}")
+    #     if args.wandb:
+    #         wandb.save(best_model_path)
+    #         print("Best model uploaded to wandb.")
 
+    # open and read the emissions file
+    emission_dir =lit_model.emission_dir
+    with open(emission_dir / "total.txt", "r") as f:
+        lines = f.readlines()
+        # get the last line
+        last_line = lines[-1]
+        # get the total emissions
+        tot_co2_emission = float(last_line.split(":")[-1].strip().split(" ")[0])
+
+    # create figure
+    fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(15, 4), sharey=False)
+
+    ASSET_DIR = Path(__file__).resolve().parents[1] / "assets"
+
+    ax1.imshow(Image.open(f'{ASSET_DIR}/car_icon.png'));
+    ax1.set_title(f"{get_car_miles(tot_co2_emission)} car miles driven", fontsize=16);
+
+    ax2.imshow(Image.open(f'{ASSET_DIR}/house_icon.png'));
+    ax2.set_title(f"{get_household_fraction(tot_co2_emission)}% of Weekly American Household Emissions", fontsize=16);
+
+    # save figure
+    fig.savefig(emission_dir / f"{model.model_name}.txt.png", dpi=300)
+    
+    # log figure to W&B
+    if args.wandb:
+        wandb.run.log({"Exemplary Equivalents for CO2 Emission": fig})
 
 if __name__ == "__main__":
     cli_main()

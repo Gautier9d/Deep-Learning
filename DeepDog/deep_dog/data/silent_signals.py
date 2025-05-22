@@ -3,7 +3,7 @@ import argparse
 from pathlib import Path
 from datasets import load_dataset, load_from_disk
 import torch
-from transformers import BertTokenizer
+from transformers import AutoTokenizer, BertTokenizer
 from sklearn.model_selection import train_test_split
 import h5py
 import emoji
@@ -13,6 +13,7 @@ import pandas as pd
 from .base_data_module import BaseDataModule
 from .ss_utils import generate_rationale_mask
 from functools import partial
+from deep_dog.utils import model_name_map
 
 # Download the required NLTK data
 try:
@@ -33,7 +34,16 @@ class SilentSignalsDataModule(BaseDataModule):
         self.val_split = args_dict.get("val_split", 0.1)
         self.test_split = args_dict.get("test_split", 0.1)
 
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        # Initialize tokenizer based on model name
+        model_name = args_dict.get("model_name", "distilbert")
+        model_id = model_name_map.get(model_name, "distilbert-base-uncased")
+
+        if model_name in ['bert', 'hatexplain', 'bert_mlp', 'distilbert']:
+            print('Loading BERT tokenizer...')
+            self.tokenizer = BertTokenizer.from_pretrained(model_id)
+        elif model_name == 'hatebert':
+            print('Loading HateBERT tokenizer...')
+            self.tokenizer = AutoTokenizer.from_pretrained(model_id)
 
         self.data_train = None
         self.data_val = None
@@ -74,16 +84,16 @@ class SilentSignalsDataModule(BaseDataModule):
 
         # Only generate data if it doesn't already exist
         if DATA_DIRNAME.exists():
-            return 
+            return
 
         # Download and pre-process the dataset
         dataset = load_dataset("SALT-NLP/silent_signals")
         processed_dataset = dataset.map(generate_rationale_mask,
-                    fn_kwargs={
-                        'tokenizer': self.tokenizer,
-                        'max_length': self.max_length
-                    },
-                    num_proc=self.num_workers)
+                                        fn_kwargs={
+                                            'tokenizer': self.tokenizer,
+                                            'max_length': self.max_length
+                                        },
+                                        num_proc=self.num_workers)
         processed_dataset.save_to_disk(DATA_DIRNAME)
 
     def setup(self, stage: Optional[str] = None):
@@ -94,7 +104,7 @@ class SilentSignalsDataModule(BaseDataModule):
 
         # Load the dataset
         dataset = load_from_disk(DATA_DIRNAME)
-        train_dataset = dataset["train"]
+        train_dataset = dataset["train"].take(100)
 
         # First split off the test set
         train_val_idx, test_idx = train_test_split(range(len(train_dataset)),
@@ -141,13 +151,13 @@ class SilentSignalsDataset(torch.utils.data.Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx):
-       item = self.dataset[idx]
-       obj = {
+        item = self.dataset[idx]
+        obj = {
             'input_ids': torch.tensor(item['input_ids']),
             'attention_mask': torch.tensor(item['attention_mask']),
             'rationale_mask': torch.tensor(item['rationale_mask']),
             'content': item['content'],
             'dog_whistle': item['dog_whistle'],
-       }
-       assert torch.sum(obj['rationale_mask']) > 0, "No rationale mask found"
-       return obj
+        }
+        assert torch.sum(obj['rationale_mask']) > 0, "No rationale mask found"
+        return obj

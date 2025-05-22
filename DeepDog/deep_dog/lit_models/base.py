@@ -3,7 +3,9 @@ import torch
 import pytorch_lightning as pl
 from torch import optim
 import torchmetrics
-
+from codecarbon import EmissionsTracker
+import os
+from pathlib import Path
 
 class TokenF1Score(torchmetrics.Metric):
 
@@ -59,7 +61,9 @@ class BaseLitModel(pl.LightningModule):
             'f1':
             torchmetrics.F1Score(task='binary'),
             'token_f1':
-            TokenF1Score()
+            TokenF1Score(),
+            'auprc':
+            torchmetrics.AveragePrecision(task='binary')
         })
         self.val_metrics = torch.nn.ModuleDict({
             'iou':
@@ -67,7 +71,9 @@ class BaseLitModel(pl.LightningModule):
             'f1':
             torchmetrics.F1Score(task='binary'),
             'token_f1':
-            TokenF1Score()
+            TokenF1Score(),
+            'auprc':
+            torchmetrics.AveragePrecision(task='binary')
         })
         self.test_metrics = torch.nn.ModuleDict({
             'iou':
@@ -75,8 +81,21 @@ class BaseLitModel(pl.LightningModule):
             'f1':
             torchmetrics.F1Score(task='binary'),
             'token_f1':
-            TokenF1Score()
+            TokenF1Score(),
+            'auprc':
+            torchmetrics.AveragePrecision(task='binary')
         })
+
+        self.emission_dir = self.emission_dirname() / f"{self.model.model_name}"
+        os.makedirs(self.emission_dir, exist_ok=True)  # Ensure emissions directory exists
+
+        # Initialize CodeCarbon tracker
+        self.tracker = EmissionsTracker(
+            project_name=f"{self.model.model_name}",
+            output_dir=self.emission_dir,
+            measure_power_secs=1 # Tracks CPU/GPU/RAM power usage every second
+        )
+        self.emissions = {'train': 0.0, 'val': 0.0, 'test': 0.0}  # Track emissions by phase
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -84,6 +103,11 @@ class BaseLitModel(pl.LightningModule):
         parser.add_argument("--learning_rate", type=float, default=2e-5)
         parser.add_argument("--weight_decay", type=float, default=0.01)
         return parent_parser
+    
+    @classmethod
+    def emission_dirname(cls):
+        return Path(__file__).resolve().parents[2] / "emissions"
+
 
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(),
@@ -96,9 +120,11 @@ class BaseLitModel(pl.LightningModule):
 
     def training_step(self, batch: Dict[str, torch.Tensor],
                       batch_idx: int) -> torch.Tensor:
+
         attention_scores = self(batch)
         loss = torch.nn.functional.binary_cross_entropy(
-            attention_scores, batch["rationale_mask"].float())
+            attention_scores,
+            batch["rationale_mask"].type_as(attention_scores))
 
         # Update and log metrics
         self.train_metrics['iou'](attention_scores > 0.5,
@@ -107,6 +133,9 @@ class BaseLitModel(pl.LightningModule):
                                  batch["rationale_mask"])
         self.train_metrics['token_f1'](attention_scores > 0.5,
                                        batch["rationale_mask"])
+        self.train_metrics['auprc'](
+            attention_scores,
+            batch["rationale_mask"])
 
         self.log("train_loss",
                  loss,
@@ -126,9 +155,12 @@ class BaseLitModel(pl.LightningModule):
 
     def validation_step(self, batch: Dict[str, torch.Tensor],
                         batch_idx: int) -> None:
+
+     
         attention_scores = self(batch)
         val_loss = torch.nn.functional.binary_cross_entropy(
-            attention_scores, batch["rationale_mask"].float())
+            attention_scores,
+            batch["rationale_mask"].type_as(attention_scores))
 
         # Update and log metrics
         self.val_metrics['iou'](attention_scores > 0.5,
@@ -136,6 +168,9 @@ class BaseLitModel(pl.LightningModule):
         self.val_metrics['f1'](attention_scores > 0.5, batch["rationale_mask"])
         self.val_metrics['token_f1'](attention_scores > 0.5,
                                      batch["rationale_mask"])
+        self.val_metrics['auprc'](
+            attention_scores,
+            batch["rationale_mask"])
 
         self.log("val_loss", val_loss, prog_bar=True)
         self.log_dict({
@@ -144,11 +179,13 @@ class BaseLitModel(pl.LightningModule):
         },
                       prog_bar=True)
 
+
     def test_step(self, batch: Dict[str, torch.Tensor],
                   batch_idx: int) -> None:
+
         attention_scores = self(batch)
         test_loss = torch.nn.functional.binary_cross_entropy(
-            attention_scores, batch["rationale_mask"].float())
+            attention_scores, batch["rationale_mask"].type_as(attention_scores))
 
         # Update and log metrics
         self.test_metrics['iou'](attention_scores > 0.5,
@@ -157,6 +194,51 @@ class BaseLitModel(pl.LightningModule):
                                 batch["rationale_mask"])
         self.test_metrics['token_f1'](attention_scores > 0.5,
                                       batch["rationale_mask"])
+        self.test_metrics['auprc'](
+            attention_scores,
+            batch["rationale_mask"])
 
         self.log("test_loss", test_loss)
         self.log_dict({f"test_{k}": m for k, m in self.test_metrics.items()})
+
+    def on_train_epoch_start(self):
+        self.tracker.start_task("train_epoch")
+
+    def on_train_epoch_end(self):
+        epoch_emissions = self.tracker.stop_task("train_epoch")  # Stop train task
+        self.emissions['train'] += epoch_emissions.emissions
+        self.log("train_emissions_kgCO2e", epoch_emissions.emissions, on_epoch=True)
+
+    def on_validation_epoch_start(self):
+        self.tracker.start_task("val_epoch")
+
+    def on_validation_epoch_end(self):
+        epoch_emissions = self.tracker.stop_task("val_epoch")  # Stop val task
+
+        self.emissions['val'] += epoch_emissions.emissions
+        self.log("val_emissions_kgCO2e", epoch_emissions.emissions, on_epoch=True)
+
+    def on_test_epoch_start(self):
+        self.tracker.start_task("test_epoch")
+
+    def on_test_epoch_end(self):
+        epoch_emissions = self.tracker.stop_task("test_epoch")  # Stop test task
+        self.emissions['test'] += epoch_emissions.emissions
+        self.log("test_emissions_kgCO2e", epoch_emissions.emissions, on_epoch=True)
+
+    def on_fit_end(self):
+        # Sum and report total emissions after training and validation
+        total_emissions = sum(self.emissions.values())
+        print(f"Total Emissions (Train + Val): {total_emissions:.10f} kgCO2e")
+        with open(self.emission_dir / "train_val.txt", "a") as f:
+            f.write(f"Train Emissions: {self.emissions['train']:.10f} kgCO2e\n")
+            f.write(f"Val Emissions: {self.emissions['val']:.10f} kgCO2e\n")
+            f.write(f"Total (Train + Val): {total_emissions:.10f} kgCO2e\n")
+
+    def on_test_end(self):
+        # Update total emissions with test phase and report final total
+        total_emissions = sum(self.emissions.values())
+        print(f"Final Total Emissions (Train + Val + Test): {total_emissions:.10f} kgCO2e")
+        with open(self.emission_dir / "total.txt", "a") as f:
+            f.write(f"Test Emissions: {self.emissions['test']:.10f} kgCO2e\n")
+            f.write(f"Final Total (Train + Val + Test): {total_emissions:.10f} kgCO2e\n")

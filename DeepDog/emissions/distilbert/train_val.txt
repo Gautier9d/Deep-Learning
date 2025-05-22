@@ -1,0 +1,3 @@
+Train Emissions: 0.0000006751 kgCO2e
+Val Emissions: 0.0000038977 kgCO2e
+Total (Train + Val): 0.0000045727 kgCO2e

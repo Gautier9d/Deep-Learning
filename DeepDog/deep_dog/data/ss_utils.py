@@ -132,7 +132,7 @@ def generate_rationale_mask(item, tokenizer, max_length):
     # Skip the item with HH dog whistle
     if item["dog_whistle"] == "HH":
         return None
-    
+
     # Convert emojis to text representation
     text = emoji.demojize(item["content"], delimiters=("", ""))
     dog_whistle = emoji.demojize(item["dog_whistle"], delimiters=("", ""))
