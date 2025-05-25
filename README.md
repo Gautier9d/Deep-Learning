@@ -25,12 +25,12 @@ We present DeepDog, a transformer-based framework for detecting and analyzing co
 The following example demonstrates the complexity and subtlety involved in detecting dog whistles in text. Two different LLMs when asked the same question yield contradicting interpretations, highlighting why advanced ML techniques are necessary for this task:
 
 <div align="center" style="display: flex; justify-content: center; gap: 20px;">
-    <div style="flex: 1; max-width: 45%;">
-        <img src="assets/grok_output.png" alt="First Analysis" style="width: 100%;"/>
+    <div style="flex: 1; max-width: 30%;">
+        <img src="assets/grok_output.png" alt="First Analysis" style="width: 50%;"/>
         <p><em>Grok: Identifies the text as containing coded language</em></p>
     </div>
-    <div style="flex: 1; max-width: 47%;">
-        <img src="assets/chatgpt_output.png" alt="Second Analysis" style="width: 100%;"/>
+    <div style="flex: 1; max-width: 30%;">
+        <img src="assets/chatgpt_output.png" alt="Second Analysis" style="width: 50%;"/>
         <p><em>ChatGPT: Labels the same text as innocuous</em></p>
     </div>
 </div>
