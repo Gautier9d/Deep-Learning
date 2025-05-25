@@ -1,6 +1,6 @@
 <div align="center">
   
-  # DeepDog: Deep Learning for Dog Whistle Detection
+# DeepDog: Deep Learning for Dog Whistle Detection
 
 <a href="https://gist.github.com/eraraya-ricardo/8391f6bdae596e82fe0260c215c5ab8c" target="_blank"><img src="" /></a>
 [![Open Source Love](https://firstcontributions.github.io/open-source-badges/badges/open-source-v2/open-source.svg)](https://github.com/firstcontributions/open-source-badges) [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
@@ -20,6 +20,21 @@ EPFL's EE-559 - Deep Learning Project Repository<br>
 
 We present DeepDog, a transformer-based framework for detecting and analyzing coded language ("dog whistles") in online content. The framework supports multiple pre-trained models (BERT, DistilBERT, HateBERT, and HateXplain) and implements parameter-efficient fine-tuning through Low-Rank Adaptation (LoRA). Evaluated on the SALT-NLP Silent Signals dataset, the models we used demonstrate robust performance in identifying dog whistle. Additionally, the project includes environmental impact tracking, visualizing the carbon footprint of model training in terms of real-world equivalents.
 
+## The Challenge of Dog Whistle Detection
+
+The following example demonstrates the complexity and subtlety involved in detecting dog whistles in text. Two different LLMs when asked the same question yield contradicting interpretations, highlighting why advanced ML techniques are necessary for this task:
+
+<div align="center" style="display: flex; justify-content: center; gap: 20px;">
+    <div style="flex: 1; max-width: 45%;">
+        <img src="assets/grok_output.png" alt="First Analysis" style="width: 100%;"/>
+        <p><em>Grok: Identifies the text as containing coded language</em></p>
+    </div>
+    <div style="flex: 1; max-width: 47%;">
+        <img src="assets/chatgpt_output.png" alt="Second Analysis" style="width: 100%;"/>
+        <p><em>ChatGPT: Labels the same text as innocuous</em></p>
+    </div>
+</div>
+
 ## Key Features
 
 - **Multi-Model Support**: Compatible with BERT, DistilBERT, HateBERT, and HateXplain
@@ -32,6 +47,11 @@ We present DeepDog, a transformer-based framework for detecting and analyzing co
 The project includes built-in carbon emission tracking using [`codecarbon`](https://github.com/mlco2/codecarbon). Training results include visualizations of:
 - Equivalent car miles driven
 - Percentage of weekly American household emissions
+
+## Experiment Tracking
+
+All experiments and model artifacts are tracked using Weights & Biases (W&B). You can explore our training runs, model performance, and artifacts at:
+[https://wandb.ai/gopald/deep-dog](https://wandb.ai/gopald/deep-dog).
 
 
 ## Course Information and Contributors
@@ -91,24 +111,24 @@ Key arguments:
 
 ## Project Structure
 
-```
-├── deep_dog              # Main package directory
-│   ├── data              # Data handling modules
-│   │   ├── base_data_module.py
-│   │   ├── silent_signals.py
-│   │   └── ss_utils.py
-│   ├── lit_models        # PyTorch Lightning model implementations
-│   │   └── base.py
-│   ├── models            # Core model implementations
-│   │   ├── lora.py
-│   │   └── transformer_rationale.py
-│   └── utils.py
-├── training              # Training scripts
-│   └── train.py
-├── __init__.py
-├── README.md
-└── requirements.txt
-```
+   ```
+   ├── deep_dog              # Main package directory
+   │   ├── data              # Data handling modules
+   │   │   ├── base_data_module.py
+   │   │   ├── silent_signals.py
+   │   │   └── ss_utils.py
+   │   ├── lit_models        # PyTorch Lightning model implementations
+   │   │   └── base.py
+   │   ├── models            # Core model implementations
+   │   │   ├── lora.py
+   │   │   └── transformer_rationale.py
+   │   └── utils.py
+   ├── training              # Training scripts
+   │   └── train.py
+   ├── __init__.py
+   ├── README.md
+   └── requirements.txt
+   ```
 
 <!-- <div align='center'>
     <img src='assets/dog_whistle.jpg' width=400/> 
@@ -116,27 +136,27 @@ Key arguments:
 </div> -->
 
 
-## Publications and References
+## References
 
-1. LoRA: Low-Rank Adaptation of Large Language Models  
+1. Silent Signals, Loud Impact: LLMs for Word-Sense Disambiguation of Coded Dog Whistles
+   Julia Kruk, et al.  
+   [arXiv:2406.06840](https://arxiv.org/abs/2406.06840)
+
+2. LoRA: Low-Rank Adaptation of Large Language Models  
    Edward J. Hu, et al.  
    [arXiv:2106.09685](https://arxiv.org/abs/2106.09685)
 
-2. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding  
+3. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding  
    Jacob Devlin, et al.  
    [arXiv:1810.04805](https://arxiv.org/abs/1810.04805)
 
-3. DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter  
+4. DistilBERT, a distilled version of BERT: smaller, faster, cheaper and lighter  
    Victor Sanh, et al.  
    [arXiv:1910.01108](https://arxiv.org/abs/1910.01108)
 
-4. HateBERT: Retraining BERT for Abusive Language Detection in English  
+5. HateBERT: Retraining BERT for Abusive Language Detection in English  
    Tommy Liu, et al.  
    [arXiv:2010.12472](https://arxiv.org/abs/2010.12472)
-
-5. Silent Signals, Loud Impact: LLMs for Word-Sense Disambiguation of Coded Dog Whistles
-   Julia Kruk, et al.  
-   [arXiv:2406.06840](https://arxiv.org/abs/2406.06840)
 
 ## Acknowledgments
 
