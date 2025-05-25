@@ -12,3 +12,6 @@ torch==2.6.0
 torchmetrics==1.7.1
 transformers==4.49.0
 wandb==0.19.11
+streamlit==1.45.1
+gdown==5.2.0
+mkposters==0.0.2

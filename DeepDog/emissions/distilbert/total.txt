@@ -1,2 +1,0 @@
-Test Emissions: 0.0000000000 kgCO2e
-Final Total (Train + Val + Test): 0.0000045727 kgCO2e

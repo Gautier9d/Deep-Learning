@@ -5,6 +5,10 @@
 # gitignore template for Jupyter Notebooks
 # website: http://jupyter.org/
 
+bert.ckpt
+research_poster
+
+
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
