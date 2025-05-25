@@ -1,7 +1,6 @@
 codecarbon==3.0.1
 datasets==3.4.1
 emoji==2.14.1
-h5py==3.13.0
 matplotlib==3.10.3
 nltk==3.9.1
 numpy==2.2.6
