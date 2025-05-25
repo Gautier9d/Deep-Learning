@@ -2,7 +2,6 @@
   
 # DeepDog: Deep Learning for Dog Whistle Detection
 
-<a href="https://gist.github.com/eraraya-ricardo/8391f6bdae596e82fe0260c215c5ab8c" target="_blank"><img src="" /></a>
 [![Open Source Love](https://firstcontributions.github.io/open-source-badges/badges/open-source-v2/open-source.svg)](https://github.com/firstcontributions/open-source-badges) [![License: MIT](https://img.shields.io/badge/License-MIT-red.svg)](https://opensource.org/licenses/MIT)
 
 EPFL's EE-559 - Deep Learning Project Repository<br>
