@@ -1,15 +1,58 @@
 import streamlit as st
 import torch
-from codecarbon import EmissionsTracker
 from utils import load_transformer_rationale
 from deep_dog.data.ss_utils import create_rationale_mask
-from deep_dog.utils import get_car_miles, get_household_fraction
 import sys
 
 
-# Initialize tab state if not present
+@st.cache_resource
+def load_model(model_type):
+    """Load the model and tokenizer only once and cache them"""
+    return load_transformer_rationale(model_type=model_type)
+
+
+def get_prediction(sentence, model_type):
+    """Get prediction for a given sentence and model"""
+    model, tokenizer = load_model(model_type)
+    
+    inputs = tokenizer(sentence,
+                    max_length=256,
+                    padding="max_length",
+                    truncation=True,
+                    return_tensors="pt")
+    batch = {
+        'input_ids': inputs['input_ids'],
+        'attention_mask': inputs['attention_mask']
+    }
+    with torch.no_grad():
+        rationale_scores = model(batch)[0]
+        rationale_mask = (rationale_scores > 0.5).int().tolist()
+    
+    tokens = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
+    filtered = [(tok, mask) for tok, mask in zip(tokens, rationale_mask)
+               if not (tok.startswith('[') and tok.endswith(']'))]
+    
+    # Reconstruct the sentence with rationale tokens highlighted in red
+    highlighted_text = ""
+    for tok, mask in filtered:
+        word = tok[2:] if tok.startswith("##") else (" " + tok if highlighted_text else tok)
+        if mask:
+            highlighted_text += f'<span style="color:red;font-weight:bold">{word}</span>'
+        else:
+            highlighted_text += word
+    
+    return highlighted_text
+
+
+# Initialize states if not present
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = 0
+if 'predictions' not in st.session_state:
+    st.session_state.predictions = {
+        'sentence': None,
+        'BERT': {'output': None},
+        'BERT+LoRA': {'output': None}
+    }
 
 # Create three tabs
 tab1, tab2, tab3 = st.tabs(["DeepDog", "Glossary", "Model Demo"])
@@ -24,35 +67,61 @@ with tab2:
 
 with tab3:
     st.title("BERT Dog Whistle Demo")
+    
+    # Model selection
+    model_type = st.radio(
+        "Select Model",
+        ["BERT", "BERT+LoRA"],
+        help="BERT is the base model. BERT+LoRA uses parameter-efficient fine-tuning for improved performance."
+    )
+    
     sentence = st.text_input("Enter a sentence:", "This is a secret dog whistle message.")
 
     if st.button("Predict"):
-        model, tokenizer = load_transformer_rationale()
-        inputs = tokenizer(sentence,
-                        max_length=256,
-                        padding="max_length",
-                        truncation=True,
-                        return_tensors="pt")
-        batch = {
-            'input_ids': inputs['input_ids'],
-            'attention_mask': inputs['attention_mask']
-        }
-        with torch.no_grad():
-            rationale_scores = model(batch)[0]
-            rationale_mask = (rationale_scores > 0.5).int().tolist()
-        
-        tokens = tokenizer.convert_ids_to_tokens(inputs["input_ids"][0])
-        filtered = [(tok, mask) for tok, mask in zip(tokens, rationale_mask)
-                   if not (tok.startswith('[') and tok.endswith(']'))]
-        
-        # Reconstruct the sentence with rationale tokens highlighted in red
-        highlighted_text = ""
-        for tok, mask in filtered:
-            word = tok[2:] if tok.startswith("##") else (" " + tok if highlighted_text else tok)
-            if mask:
-                highlighted_text += f'<span style="color:red;font-weight:bold">{word}</span>'
+        with st.spinner(f"Running prediction with {model_type}..."):
+            # Get the new prediction
+            new_output = get_prediction(sentence, model_type)
+            
+            # Reset predictions if sentence changed
+            if sentence != st.session_state.predictions['sentence']:
+                st.session_state.predictions = {
+                    'sentence': sentence,
+                    'BERT': {'output': None},
+                    'BERT+LoRA': {'output': None}
+                }
+            
+            # Store the new prediction
+            st.session_state.predictions['sentence'] = sentence
+            st.session_state.predictions[model_type] = {
+                'output': new_output
+            }
+            
+            # Show the predictions
+            st.markdown("### Model Output (Dog whistles highlighted in red):")
+            
+            # If we have predictions from both models for the same sentence
+            if (st.session_state.predictions['BERT']['output'] and 
+                st.session_state.predictions['BERT+LoRA']['output']):
+                col1, col2 = st.columns(2)
+                
+                # BERT Column
+                with col1:
+                    st.markdown("**BERT Output:**")
+                    st.markdown(f"<div style='font-size: 1.2em'>{st.session_state.predictions['BERT']['output']}</div>", 
+                              unsafe_allow_html=True)
+                
+                # BERT+LoRA Column
+                with col2:
+                    st.markdown("**BERT+LoRA Output:**")
+                    st.markdown(f"<div style='font-size: 1.2em'>{st.session_state.predictions['BERT+LoRA']['output']}</div>", 
+                              unsafe_allow_html=True)
+            
             else:
-                highlighted_text += word
-        
-        st.markdown("### Model Output (Dog whistle highlighted):")
-        st.markdown(f"<div style='font-size: 1.2em'>{highlighted_text}</div>", unsafe_allow_html=True)
+                # Show only current prediction
+                st.markdown(f"**{model_type} Output:**")
+                st.markdown(f"<div style='font-size: 1.2em'>{new_output}</div>", 
+                          unsafe_allow_html=True)
+                
+                # Add guidance message
+                other_model = "BERT+LoRA" if model_type == "BERT" else "BERT"
+                st.info(f"💡 Try selecting {other_model} and clicking Predict again to see a side-by-side comparison of both models' outputs for this sentence.")

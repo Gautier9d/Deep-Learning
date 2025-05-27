@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import pandas as pd
+import numpy as np
 
 def render_readme():
     st.title("DeepDog: Deep Learning for Dog Whistle Detection")
@@ -46,6 +48,74 @@ We present DeepDog, a transformer-based framework for detecting and analyzing co
 
     st.header("Experiment Tracking")
     st.markdown("All experiments and model artifacts are tracked using Weights & Biases (W&B). You can explore our training runs, model performance, and artifacts at: [https://wandb.ai/gopald/deep-dog](https://wandb.ai/gopald/deep-dog)")
+
+    st.header("Results")
+    st.markdown("### Model Performance and Environmental Impact")
+
+    # Define the metrics and data
+    metrics = ["IoU", "F1", "AUPRC", "Emissions", "Car km", "House Fraction (%)"]
+    
+    # Create the data as a list of lists for proper shape
+    data = [
+        # IoU row
+        ["75.82", "76.58", "73.59", "75.81", "63.28", "61.91", "61.79", "61.25"],
+        # F1 row
+        ["86.25", "86.73", "84.79", "86.24", "77.51", "76.47", "76.39", "75.97"],
+        # AUPRC row
+        ["92.81", "92.75", "91.50", "92.37", "83.67", "83.27", "82.75", "82.48"],
+        # Emissions row
+        ["0.46", "10.30", "10.20", "10.30", "0.42", "0.76", "0.78", "0.77"],
+        # Car km row
+        ["1.82", "40.50", "40.00", "40.50", "1.67", "2.97", "3.04", "3.03"],
+        # House Fraction row
+        ["0.29", "6.41", "6.32", "6.40", "0.26", "0.47", "0.48", "0.48"]
+    ]
+    
+    columns = [
+        "FT-DistilBERT", "FT-BERT", "FT-hateBERT", "FT-HateXplain",
+        "LoRA-DistilBERT", "LoRA-BERT", "LoRA-hateBERT", "LoRA-HateXplain"
+    ]
+
+    # Create DataFrame
+    combined_data = pd.DataFrame(data, index=metrics, columns=columns)
+
+    # Create style DataFrame with the same shape
+    styles = pd.DataFrame(
+       
+        index=metrics,
+        columns=columns
+    )
+    
+    # Apply styling
+    styled_df = combined_data.style.apply(lambda _: styles, axis=None)
+    
+    # Display the combined table with a legend
+    st.markdown("##### Model Types:")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**FT-**: Fine-tuned Models")
+    with col2:
+        st.markdown("**LoRA-**: LoRA + Fine-tuned Models")
+    
+    st.table(styled_df)
+
+    st.markdown("""
+    **Metric Descriptions:**
+    - **IoU**: Intersection over Union score for rationale prediction
+    - **F1**: F1 score for rationale prediction
+    - **AUPRC**: Area Under the Precision-Recall Curve
+    - **Emissions**: CO₂ emissions in kg x 10⁻³
+    - **Car km**: Equivalent car kilometers driven x 10⁻³
+    - **House Fraction**: Percentage of weekly American household emissions x 10⁻³
+    """)
+    
+    # Display carbon emissions visualization
+    st.markdown("### Carbon Emissions Comparison")
+    st.markdown("Visual comparison of carbon emissions during training between standard fine-tuning and LoRA approaches:")
+    st.image(os.path.join("assets", "carbon_emissions.png"), 
+            caption="Carbon Emissions Comparison across Different Models", 
+            use_container_width=True)
+    
 
     st.header("Course Information and Contributors")
     st.markdown("""
