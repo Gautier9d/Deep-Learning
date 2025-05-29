@@ -54,8 +54,8 @@ if 'predictions' not in st.session_state:
         'BERT+LoRA': {'output': None}
     }
 
-# Create three tabs
-tab1, tab2, tab3 = st.tabs(["DeepDog", "Glossary", "Model Demo"])
+# Create four tabs
+tab1, tab2, tab3, tab4 = st.tabs(["DeepDog", "Glossary", "Poster", "Model Demo"])
 
 with tab1:
     from readme_streamlit import render_readme
@@ -66,6 +66,21 @@ with tab2:
     render_glossary()
 
 with tab3:
+    st.title("Poster")
+    st.write(
+        """
+        <div style="position: relative; width: 100%; height: 0; padding-top: 141.5825%;
+            padding-bottom: 0; box-shadow: 0 2px 8px 0 rgba(63,69,81,0.16); margin-top: 1.6em; margin-bottom: 0.9em; overflow: hidden;
+            border-radius: 8px; will-change: transform;">
+            <iframe loading="lazy" style="position: absolute; width: 100%; height: 100%; top: 0; left: 0; border: none; padding: 0;margin: 0;"
+                src="https://www.canva.com/design/DAGoSCg6w0A/1QbWdrKJwfPmQ9OMh5tvSw/view?embed" allowfullscreen="allowfullscreen" allow="fullscreen">
+            </iframe>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+with tab4:
     st.title("BERT Dog Whistle Demo")
     
     # Model selection
