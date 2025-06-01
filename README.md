@@ -75,6 +75,17 @@ source venv/bin/activate  # On Linux/Mac
 pip install -r requirements.txt
 ```
 
+Alternatively, one can setup with [uv](https://docs.astral.sh/uv/getting-started/installation/)
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv venv deepdog-venv
+source deepdog-venv/bin/activate
+uv pip install -r requirements.txt
+```
+
+
+
 3. (Optional) Set up Weights & Biases for experiment tracking:
 ```bash
 wandb login
