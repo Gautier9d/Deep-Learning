@@ -89,7 +89,7 @@ class SilentSignalsDataModule(BaseDataModule):
                                         },
                                         num_proc=self.num_workers)
         # num_proc=self.num_workers)
-        processed_dataset.save_to_disk(DATA_DIRNAME)
+        processed_dataset.save_to_disk(str(DATA_DIRNAME))
 
     def setup(self, stage: Optional[str] = None):
         """
@@ -98,7 +98,7 @@ class SilentSignalsDataModule(BaseDataModule):
         """
 
         # Load the dataset
-        dataset = load_from_disk(DATA_DIRNAME)
+        dataset = load_from_disk(str(DATA_DIRNAME))
         train_dataset = dataset["train"]
 
         # First split off the test set
